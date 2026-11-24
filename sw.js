@@ -1,5 +1,5 @@
 // Offline support: network first, cached copy when there is no connection.
-const CACHE = "gym-v1";
+const CACHE = "gym-v2";
 const FILES = ["./", "./index.html", "./manifest.webmanifest", "./icon.svg", "./icon-192.png", "./icon-512.png", "./icon-180.png"];
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)));

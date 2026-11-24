@@ -6,7 +6,7 @@
 <!--APP-HEAD-START-->
 <title>Дневник тренировок</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="theme-color" content="#eef0ec">
+<meta name="theme-color" content="#e2dfce">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Тренировки">
 <link rel="manifest" href="manifest.webmanifest">
@@ -18,16 +18,19 @@
 <style>
 /* Layout: one narrow column like a training notebook; sets are rows of a ledger; bottom tab bar on lists, back bar inside a workout. */
 :root {
-  --bg: #eef0ec;
-  --surface: #ffffff;
-  --sunken: #e3e6e0;
-  --fg: #1a1d1b;
-  --muted: #646b66;
-  --line: #d4d8d1;
-  --accent: #1f56c9;      /* blue 20 kg plate */
-  --accent-fg: #ffffff;
-  --accent-soft: #dfe7f8;
-  --danger: #b3261e;
+  --bg: #e2dfce;          /* Ballet White */
+  --surface: #eeece1;
+  --sunken: #d7d3bf;
+  --fg: #1b0905;          /* Black Rose */
+  --muted: #6e5d55;
+  --line: #c9c3ad;
+  --primary: #4c050d;     /* Bulgarian Rose */
+  --primary-fg: #f1efe4;
+  --accent: #4c050d;
+  --accent-fg: #f1efe4;
+  --accent-soft: #c3d1da; /* Misty Blue, lightened */
+  --blue: #95b1c7;        /* Misty Blue */
+  --danger: #9b1c1c;
   --font-display: "Unbounded", "Manrope", system-ui, sans-serif;
   --font-body: "Manrope", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --radius: 14px;
@@ -35,14 +38,16 @@
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #121513; --surface: #1c201d; --sunken: #262b27; --fg: #eceeea; --muted: #9aa29c;
-    --line: #313732; --accent: #6f9cff; --accent-fg: #0c1630; --accent-soft: #1f2a44; --danger: #ff8a80;
+    --bg: #1b0905; --surface: #29130f; --sunken: #371d18; --fg: #e2dfce; --muted: #ab9f95;
+    --line: #432722; --primary: #74111c; --primary-fg: #f1efe4; --accent: #95b1c7; --accent-fg: #1b0905;
+    --accent-soft: #2c3640; --blue: #95b1c7; --danger: #f08a80;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #121513; --surface: #1c201d; --sunken: #262b27; --fg: #eceeea; --muted: #9aa29c;
-  --line: #313732; --accent: #6f9cff; --accent-fg: #0c1630; --accent-soft: #1f2a44; --danger: #ff8a80;
+  --bg: #1b0905; --surface: #29130f; --sunken: #371d18; --fg: #e2dfce; --muted: #ab9f95;
+  --line: #432722; --primary: #74111c; --primary-fg: #f1efe4; --accent: #95b1c7; --accent-fg: #1b0905;
+  --accent-soft: #2c3640; --blue: #95b1c7; --danger: #f08a80;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -78,7 +83,7 @@ h2 { font-family: var(--font-display); font-weight: 500; font-size: 1.05rem; mar
   background: var(--sunken); color: var(--fg); min-height: 44px;
   display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none;
 }
-.btn.primary { background: var(--accent); color: var(--accent-fg); }
+.btn.primary { background: var(--primary); color: var(--primary-fg); }
 .btn.big { width: 100%; padding: 16px; font-size: 1.05rem; }
 .btn.ghost { background: transparent; color: var(--accent); padding-inline: 8px; }
 .btn.danger { background: transparent; color: var(--danger); }
@@ -134,7 +139,7 @@ textarea.input { resize: vertical; min-height: 72px; }
 .icon-btn { border: 0; background: transparent; color: var(--muted); width: 40px; height: 40px; border-radius: 10px; flex: none; font-size: 1.1rem; display: inline-grid; place-items: center; }
 .icon-btn:hover { background: var(--sunken); }
 .icon-btn.armed { background: var(--danger); color: var(--surface); }
-.hint { font-size: .85rem; color: var(--muted); background: var(--sunken); border-radius: 8px; padding: 6px 10px; }
+.hint { font-size: .85rem; color: var(--muted); background: var(--accent-soft); border-radius: 8px; padding: 6px 10px; }
 .hint:empty { display: none; }
 .hint b { color: var(--fg); font-weight: 600; }
 
@@ -174,7 +179,7 @@ textarea.input { resize: vertical; min-height: 72px; }
 .nav-inner { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; width: 100%; max-width: 560px; }
 .nav a { text-decoration: none; color: var(--muted); font-size: .8rem; font-weight: 600; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px; border-radius: 10px; }
 .nav a svg { width: 24px; height: 24px; }
-.nav a.on { color: var(--accent); background: var(--accent-soft); }
+.nav a.on { color: var(--fg); background: var(--accent-soft); }
 
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--nav-h) + 20px + env(safe-area-inset-bottom, 0px));
   background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 12px; font-weight: 600; font-size: .9rem; z-index: 20;
