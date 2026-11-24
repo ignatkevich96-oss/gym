@@ -1,0 +1,621 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!--APP-HEAD-START-->
+<title>Дневник тренировок</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="theme-color" content="#eef0ec">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Тренировки">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<!--APP-HEAD-END-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Unbounded:wght@500;700&display=swap">
+<style>
+/* Layout: one narrow column like a training notebook; sets are rows of a ledger; bottom tab bar on lists, back bar inside a workout. */
+:root {
+  --bg: #eef0ec;
+  --surface: #ffffff;
+  --sunken: #e3e6e0;
+  --fg: #1a1d1b;
+  --muted: #646b66;
+  --line: #d4d8d1;
+  --accent: #1f56c9;      /* blue 20 kg plate */
+  --accent-fg: #ffffff;
+  --accent-soft: #dfe7f8;
+  --danger: #b3261e;
+  --font-display: "Unbounded", "Manrope", system-ui, sans-serif;
+  --font-body: "Manrope", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --radius: 14px;
+  --nav-h: 64px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121513; --surface: #1c201d; --sunken: #262b27; --fg: #eceeea; --muted: #9aa29c;
+    --line: #313732; --accent: #6f9cff; --accent-fg: #0c1630; --accent-soft: #1f2a44; --danger: #ff8a80;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121513; --surface: #1c201d; --sunken: #262b27; --fg: #eceeea; --muted: #9aa29c;
+  --line: #313732; --accent: #6f9cff; --accent-fg: #0c1630; --accent-soft: #1f2a44; --danger: #ff8a80;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--font-body); font-size: 16px; line-height: 1.45;
+  -webkit-tap-highlight-color: transparent;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+button, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.wrap {
+  max-width: 560px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px calc(var(--nav-h) + 32px + env(safe-area-inset-bottom, 0px));
+  display: flex; flex-direction: column; gap: 16px;
+}
+.wrap.no-nav { padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px)); }
+
+h1 { font-family: var(--font-display); font-weight: 700; font-size: 1.6rem; line-height: 1.15; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+h2 { font-family: var(--font-display); font-weight: 500; font-size: 1.05rem; margin: 0; }
+.muted { color: var(--muted); }
+.small { font-size: .875rem; }
+.eyebrow { font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+
+.btn {
+  border: 0; border-radius: 12px; padding: 12px 16px; font-weight: 600;
+  background: var(--sunken); color: var(--fg); min-height: 44px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none;
+}
+.btn.primary { background: var(--accent); color: var(--accent-fg); }
+.btn.big { width: 100%; padding: 16px; font-size: 1.05rem; }
+.btn.ghost { background: transparent; color: var(--accent); padding-inline: 8px; }
+.btn.danger { background: transparent; color: var(--danger); }
+.btn.danger.armed { background: var(--danger); color: var(--surface); }
+.btn.sm { min-height: 36px; padding: 6px 12px; font-size: .9rem; }
+
+/* Workout list */
+.list { display: flex; flex-direction: column; gap: 10px; }
+.card {
+  background: var(--surface); border-radius: var(--radius); padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 6px; border: 1px solid var(--line);
+}
+.card-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.card-title { font-weight: 700; font-size: 1.05rem; min-width: 0; overflow-wrap: anywhere; }
+.card-date { color: var(--muted); font-size: .85rem; white-space: nowrap; }
+.card-ex { color: var(--muted); font-size: .9rem; overflow-wrap: anywhere; }
+.card-note { font-size: .9rem; border-left: 2px solid var(--line); padding-left: 10px; white-space: pre-wrap; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.card-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 2px; }
+.card-open { all: unset; cursor: pointer; display: flex; flex-direction: column; gap: 6px; }
+.card-open:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 6px; }
+.month { margin-top: 8px; }
+
+.empty { text-align: center; padding: 32px 16px; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.empty .plate { width: 64px; height: 64px; border-radius: 50%; border: 10px solid var(--accent-soft); position: relative; }
+.empty .plate::after { content: ""; position: absolute; inset: 14px; border-radius: 50%; background: var(--accent-soft); }
+
+/* Editor */
+.topbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg);
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: -20px 0 0; padding: 8px 0; }
+.saved { font-size: .8rem; color: var(--muted); }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field label { font-size: .8rem; color: var(--muted); font-weight: 600; }
+.title-input {
+  font-family: var(--font-display); font-weight: 700; font-size: 1.5rem; border: 0; background: transparent;
+  padding: 4px 0; width: 100%; border-bottom: 2px solid var(--line); border-radius: 0;
+}
+.title-input:focus { outline: none; border-bottom-color: var(--accent); }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.input, textarea.input {
+  width: 100%; border: 1px solid var(--line); background: var(--surface); border-radius: 10px;
+  padding: 10px 12px; min-height: 44px;
+}
+textarea.input { resize: vertical; min-height: 72px; }
+.input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.date-input { width: auto; }
+
+.ex { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.ex-head { display: flex; gap: 8px; align-items: center; }
+.ex-num { font-family: var(--font-display); font-size: .85rem; color: var(--muted); width: 1.4em; flex: none; }
+.ex-name { flex: 1; min-width: 0; border: 0; border-bottom: 1px solid var(--line); background: transparent; padding: 6px 0; font-weight: 700; font-size: 1.05rem; border-radius: 0; }
+.ex-name:focus { outline: none; border-bottom-color: var(--accent); }
+.icon-btn { border: 0; background: transparent; color: var(--muted); width: 40px; height: 40px; border-radius: 10px; flex: none; font-size: 1.1rem; display: inline-grid; place-items: center; }
+.icon-btn:hover { background: var(--sunken); }
+.icon-btn.armed { background: var(--danger); color: var(--surface); }
+.hint { font-size: .85rem; color: var(--muted); background: var(--sunken); border-radius: 8px; padding: 6px 10px; }
+.hint:empty { display: none; }
+.hint b { color: var(--fg); font-weight: 600; }
+
+.sets { display: grid; grid-template-columns: 2em 1fr 1fr 40px; gap: 6px 8px; align-items: center; font-variant-numeric: tabular-nums; }
+.sets .h { font-size: .75rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+.sets .n { color: var(--muted); font-weight: 600; text-align: center; }
+.num { width: 100%; min-width: 0; text-align: center; border: 1px solid var(--line); background: var(--bg); border-radius: 10px; padding: 8px 4px; min-height: 44px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.num:focus { outline: none; border-color: var(--accent); background: var(--surface); box-shadow: 0 0 0 3px var(--accent-soft); }
+.ex-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.ex-note { min-height: 56px; }
+
+.bottom-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+
+/* Progress */
+.prog-item { all: unset; cursor: pointer; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.prog-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.prog-name { font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
+.prog-best { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--accent); white-space: nowrap; }
+.chart { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; }
+.chart svg { width: 100%; height: auto; display: block; }
+.hist { display: flex; flex-direction: column; gap: 8px; }
+.hist-row { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; display: flex; flex-direction: column; gap: 2px; }
+.hist-row .top { display: flex; justify-content: space-between; gap: 8px; }
+.sets-str { font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+
+/* More */
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.panel p { margin: 0; }
+
+/* Bottom nav */
+.nav {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 6;
+  background: var(--surface); border-top: 1px solid var(--line);
+  padding: 6px max(16px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  display: flex; justify-content: center;
+}
+.nav-inner { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; width: 100%; max-width: 560px; }
+.nav a { text-decoration: none; color: var(--muted); font-size: .8rem; font-weight: 600; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px; border-radius: 10px; }
+.nav a svg { width: 24px; height: 24px; }
+.nav a.on { color: var(--accent); background: var(--accent-soft); }
+
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--nav-h) + 20px + env(safe-area-inset-bottom, 0px));
+  background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 12px; font-weight: 600; font-size: .9rem; z-index: 20;
+  max-width: calc(100% - 32px); text-align: center; }
+@media (prefers-reduced-motion: no-preference) { .toast { animation: up .2s ease-out; } @keyframes up { from { opacity: 0; transform: translate(-50%, 8px); } } }
+</style>
+</head>
+<body>
+<main id="app" class="wrap"></main>
+<nav class="nav" id="nav">
+  <div class="nav-inner">
+    <a href="#" data-tab="list"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 7v10M18 7v10M3 10v4M21 10v4M6 12h12"/></svg>Тренировки</a>
+    <a href="#progress" data-tab="progress"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h16M5 15l4-4 3 3 7-7"/></svg>Прогресс</a>
+    <a href="#more" data-tab="more"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 4v10M8 10l4 4 4-4M5 19h14"/></svg>Копия</a>
+  </div>
+</nav>
+<datalist id="exlist"></datalist>
+<input type="file" id="importFile" accept="application/json,.json" hidden>
+
+<script>
+(function () {
+  "use strict";
+  var KEY = "gym-log-v1";
+  var db = load();
+  var openNotes = {};          // exercise notes opened in this session: "wid:i" -> true
+  var lastWorkoutId = null;    // to drop an untouched new workout on leave
+
+  // ---------- storage ----------
+  function load() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (raw) { var d = JSON.parse(raw); if (d && Array.isArray(d.workouts)) return d; }
+    } catch (e) {}
+    return { workouts: [] };
+  }
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(db)); flashSaved(); } catch (e) {}
+  }
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
+
+  // ---------- helpers ----------
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  function today() { var d = new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function parseDate(s) { var p = (s || today()).split("-"); return new Date(+p[0], +p[1] - 1, +p[2]); }
+  function fmtDate(s, opts) { try { return parseDate(s).toLocaleDateString("ru-RU", opts || { day: "numeric", month: "short", weekday: "short" }); } catch (e) { return s; } }
+  function norm(name) { return String(name || "").trim().toLowerCase().replace(/ё/g, "е").replace(/\s+/g, " "); }
+  function num(v) { var n = parseFloat(String(v || "").replace(",", ".")); return isNaN(n) ? null : n; }
+  function fmtNum(n) { return n == null ? "" : String(Math.round(n * 100) / 100).replace(".", ","); }
+  function hashName(name) { var h = 5381, s = norm(name); for (var i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0; return h.toString(36); }
+  function byId(id) { for (var i = 0; i < db.workouts.length; i++) if (db.workouts[i].id === id) return db.workouts[i]; return null; }
+  function sorted() {
+    return db.workouts.slice().sort(function (a, b) {
+      if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+      return (b.created || 0) - (a.created || 0);
+    });
+  }
+  function setsStr(sets) {
+    return (sets || []).filter(function (s) { return s.reps !== "" || s.weight !== ""; }).map(function (s) {
+      var r = s.reps === "" ? "?" : s.reps;
+      return s.weight === "" ? r + " повт." : r + "×" + fmtNum(num(s.weight));
+    }).join(" · ");
+  }
+  function bestWeight(sets) {
+    var b = null; (sets || []).forEach(function (s) { var w = num(s.weight); if (w != null && (b == null || w > b)) b = w; }); return b;
+  }
+  function isBlank(w) {
+    if (!w) return true;
+    if ((w.title || "").trim() || (w.notes || "").trim()) return false;
+    return !(w.exercises || []).some(function (ex) {
+      return (ex.name || "").trim() || (ex.note || "").trim() || (ex.sets || []).some(function (s) { return s.reps !== "" || s.weight !== ""; });
+    });
+  }
+  function newSet(from) { return { reps: from ? from.reps : "", weight: from ? from.weight : "" }; }
+  function newExercise() { return { name: "", note: "", sets: [newSet()] }; }
+
+  // Most recent earlier workout that has an exercise with this name
+  function previousFor(name, w) {
+    var key = norm(name); if (!key) return null;
+    var list = sorted();
+    for (var i = 0; i < list.length; i++) {
+      var o = list[i]; if (o.id === w.id) continue;
+      if (o.date > w.date || (o.date === w.date && (o.created || 0) > (w.created || 0))) continue;
+      for (var j = 0; j < o.exercises.length; j++) if (norm(o.exercises[j].name) === key && setsStr(o.exercises[j].sets)) return { w: o, ex: o.exercises[j] };
+    }
+    return null;
+  }
+  function hintHtml(name, w) {
+    var p = previousFor(name, w); if (!p) return "";
+    return "В прошлый раз, " + esc(fmtDate(p.w.date, { day: "numeric", month: "short" })) + ": <b>" + esc(setsStr(p.ex.sets)) + "</b>" +
+      (p.ex.note ? "<br>" + esc(p.ex.note) : "");
+  }
+
+  // All exercises across history, keyed by normalized name
+  function exerciseIndex() {
+    var map = {};
+    sorted().forEach(function (w) {
+      w.exercises.forEach(function (ex) {
+        var k = norm(ex.name); if (!k) return;
+        if (!map[k]) map[k] = { name: ex.name.trim(), key: k, hash: hashName(ex.name), entries: [] };
+        map[k].entries.push({ w: w, ex: ex });
+      });
+    });
+    return map;
+  }
+  function refreshDatalist() {
+    var idx = exerciseIndex(), html = "";
+    Object.keys(idx).forEach(function (k) { html += '<option value="' + esc(idx[k].name) + '"></option>'; });
+    document.getElementById("exlist").innerHTML = html;
+  }
+
+  // ---------- toast / saved ----------
+  var toastT;
+  function toast(msg) {
+    var old = document.querySelector(".toast"); if (old) old.remove();
+    var t = document.createElement("div"); t.className = "toast"; t.textContent = msg; t.setAttribute("role", "status");
+    document.body.appendChild(t); clearTimeout(toastT); toastT = setTimeout(function () { t.remove(); }, 2600);
+  }
+  var savedT;
+  function flashSaved() {
+    var el = document.getElementById("saved"); if (!el) return;
+    el.textContent = "Сохранено"; clearTimeout(savedT); savedT = setTimeout(function () { el.textContent = ""; }, 1200);
+  }
+
+  // Two-tap confirm (dialogs are unreliable in some viewers)
+  function armed(btn, label) {
+    if (btn.classList.contains("armed")) return true;
+    var orig = btn.innerHTML;
+    btn.classList.add("armed"); btn.innerHTML = label;
+    setTimeout(function () { if (btn.isConnected) { btn.classList.remove("armed"); btn.innerHTML = orig; } }, 3000);
+    return false;
+  }
+
+  // ---------- routing ----------
+  function route() {
+    var h = (location.hash || "").replace(/^#/, "");
+    if (h.indexOf("w-") === 0) return { name: "workout", id: h.slice(2) };
+    if (h.indexOf("ex-") === 0) return { name: "exercise", id: h.slice(3) };
+    if (h === "progress") return { name: "progress" };
+    if (h === "more") return { name: "more" };
+    return { name: "list" };
+  }
+  function go(hash) { if (location.hash === "#" + hash || (!hash && !location.hash)) render(); else location.hash = hash; }
+
+  function render() {
+    var r = route();
+    // drop an empty workout the user opened and left untouched
+    if (lastWorkoutId && !(r.name === "workout" && r.id === lastWorkoutId)) {
+      var lw = byId(lastWorkoutId);
+      if (lw && isBlank(lw)) { db.workouts = db.workouts.filter(function (w) { return w.id !== lastWorkoutId; }); save(); }
+      lastWorkoutId = null;
+    }
+    var app = document.getElementById("app");
+    var nav = document.getElementById("nav");
+    var tab = r.name === "exercise" ? "progress" : r.name;
+    Array.prototype.forEach.call(nav.querySelectorAll("a"), function (a) { a.classList.toggle("on", a.getAttribute("data-tab") === tab); });
+    nav.hidden = r.name === "workout";
+    app.classList.toggle("no-nav", r.name === "workout");
+    refreshDatalist();
+    if (r.name === "workout") {
+      var w = byId(r.id);
+      if (!w) { go(""); return; }
+      lastWorkoutId = w.id;
+      app.innerHTML = viewWorkout(w);
+    } else if (r.name === "progress") app.innerHTML = viewProgress();
+    else if (r.name === "exercise") app.innerHTML = viewExercise(r.id);
+    else if (r.name === "more") app.innerHTML = viewMore();
+    else app.innerHTML = viewList();
+  }
+
+  // ---------- views ----------
+  function viewList() {
+    var ws = sorted();
+    var html = '<div class="row" style="justify-content:space-between"><h1>Тренировки</h1>' +
+      (ws.length ? '<span class="muted small">' + ws.length + " " + plural(ws.length, "запись", "записи", "записей") + "</span>" : "") + "</div>";
+    html += '<button class="btn primary big" data-act="new">+ Новая тренировка</button>';
+    if (!ws.length) {
+      html += '<div class="empty"><div class="plate"></div><h2>Пока пусто</h2><p class="muted" style="margin:0">Нажми «Новая тренировка», назови её, например «День 1», и добавь упражнения с подходами. В следующий раз её можно будет повторить одной кнопкой.</p></div>';
+      return html;
+    }
+    var month = "";
+    html += '<div class="list">';
+    ws.forEach(function (w) {
+      var m = fmtDate(w.date, { month: "long", year: "numeric" });
+      if (m !== month) { month = m; html += '<div class="eyebrow month">' + esc(m) + "</div>"; }
+      var names = w.exercises.map(function (e) { return (e.name || "").trim(); }).filter(Boolean);
+      var nSets = 0; w.exercises.forEach(function (e) { nSets += (e.sets || []).filter(function (s) { return s.reps !== "" || s.weight !== ""; }).length; });
+      html += '<div class="card">' +
+        '<button class="card-open" data-act="open" data-id="' + w.id + '">' +
+          '<span class="card-top"><span class="card-title">' + esc(w.title || "Тренировка") + '</span><span class="card-date">' + esc(fmtDate(w.date)) + "</span></span>" +
+          (names.length ? '<span class="card-ex">' + esc(names.join(", ")) + "</span>" : '<span class="card-ex">Без упражнений</span>') +
+          (w.notes ? '<span class="card-note">' + esc(w.notes) + "</span>" : "") +
+        "</button>" +
+        '<div class="card-actions"><span class="muted small">' + names.length + " упр. · " + nSets + " " + plural(nSets, "подход", "подхода", "подходов") + "</span>" +
+        '<button class="btn ghost sm" data-act="repeat" data-id="' + w.id + '">↻ Повторить</button></div>' +
+        "</div>";
+    });
+    return html + "</div>";
+  }
+
+  function viewWorkout(w) {
+    var html = '<div class="topbar"><a class="btn ghost" href="#">‹ Все тренировки</a><span class="saved" id="saved" aria-live="polite"></span></div>';
+    html += '<input class="title-input" id="w-title" data-f="title" value="' + esc(w.title) + '" placeholder="День ' + (db.workouts.length) + '" aria-label="Название тренировки" autocomplete="off">';
+    html += '<div class="row"><input type="date" class="input date-input" id="w-date" data-f="date" value="' + esc(w.date) + '" aria-label="Дата"><span class="muted small">' + esc(fmtDate(w.date, { weekday: "long" })) + "</span></div>";
+    html += '<div class="field"><label for="w-notes">Заметки к тренировке</label><textarea class="input" id="w-notes" data-f="notes" placeholder="Самочувствие, сон, что было легко или тяжело, что поменять в следующий раз">' + esc(w.notes) + "</textarea></div>";
+
+    w.exercises.forEach(function (ex, i) {
+      var noteOpen = (ex.note && ex.note.length) || openNotes[w.id + ":" + i];
+      html += '<section class="ex" data-ex="' + i + '">' +
+        '<div class="ex-head"><span class="ex-num">' + (i + 1) + '</span>' +
+        '<input class="ex-name" id="ex-name-' + i + '" list="exlist" data-f="name" data-ex="' + i + '" value="' + esc(ex.name) + '" placeholder="Упражнение, например «Присед»" autocomplete="off" aria-label="Название упражнения">' +
+        '<button class="icon-btn" data-act="del-ex" data-ex="' + i + '" aria-label="Удалить упражнение" title="Удалить упражнение">✕</button></div>' +
+        '<div class="hint" id="hint-' + i + '">' + hintHtml(ex.name, w) + "</div>" +
+        '<div class="sets"><span class="h">#</span><span class="h" style="text-align:center">Повторы</span><span class="h" style="text-align:center">Вес, кг</span><span></span>';
+      ex.sets.forEach(function (s, j) {
+        html += '<span class="n">' + (j + 1) + "</span>" +
+          '<input class="num" id="r-' + i + "-" + j + '" inputmode="numeric" data-f="reps" data-ex="' + i + '" data-set="' + j + '" value="' + esc(s.reps) + '" placeholder="—" aria-label="Повторы, подход ' + (j + 1) + '">' +
+          '<input class="num" id="k-' + i + "-" + j + '" inputmode="decimal" data-f="weight" data-ex="' + i + '" data-set="' + j + '" value="' + esc(s.weight) + '" placeholder="—" aria-label="Вес, подход ' + (j + 1) + '">' +
+          '<button class="icon-btn" data-act="del-set" data-ex="' + i + '" data-set="' + j + '" aria-label="Удалить подход">−</button>';
+      });
+      html += "</div>" +
+        '<div class="ex-actions"><button class="btn sm" data-act="add-set" data-ex="' + i + '">+ Подход</button>' +
+        (noteOpen ? "" : '<button class="btn sm" data-act="note" data-ex="' + i + '">+ Заметка</button>') + "</div>" +
+        (noteOpen ? '<textarea class="input ex-note" id="ex-note-' + i + '" data-f="note" data-ex="' + i + '" placeholder="Заметка к упражнению: техника, ощущения, на что обратить внимание">' + esc(ex.note) + "</textarea>" : "") +
+        "</section>";
+    });
+
+    html += '<button class="btn big" data-act="add-ex">+ Упражнение</button>';
+    html += '<div class="bottom-actions">' +
+      '<button class="btn primary big" data-act="done">Готово</button>' +
+      '<button class="btn" data-act="repeat" data-id="' + w.id + '">↻ Повторить эту тренировку</button>' +
+      '<button class="btn danger" data-act="del-w" data-id="' + w.id + '">Удалить тренировку</button></div>';
+    return html;
+  }
+
+  function viewProgress() {
+    var idx = exerciseIndex(), keys = Object.keys(idx);
+    var html = "<h1>Прогресс</h1>";
+    if (!keys.length) return html + '<p class="muted">Здесь появятся упражнения после первой тренировки: лучший вес и история по датам.</p>';
+    keys.sort(function (a, b) { return idx[b].entries[0].w.date < idx[a].entries[0].w.date ? -1 : 1; });
+    html += '<p class="muted small" style="margin:0">Лучший вес за последнюю тренировку и сколько раз упражнение было в тренировках.</p><div class="list">';
+    keys.forEach(function (k) {
+      var it = idx[k], last = it.entries[0], b = bestWeight(last.ex.sets);
+      html += '<button class="prog-item" data-act="ex" data-hash="' + it.hash + '"><span><span class="prog-name">' + esc(it.name) + '</span><br><span class="muted small">' +
+        it.entries.length + " " + plural(it.entries.length, "раз", "раза", "раз") + " · последний " + esc(fmtDate(last.w.date, { day: "numeric", month: "short" })) + "</span></span>" +
+        '<span class="prog-best">' + (b != null ? fmtNum(b) + " кг" : esc(setsStr(last.ex.sets)) || "—") + "</span></button>";
+    });
+    return html + "</div>";
+  }
+
+  function viewExercise(hash) {
+    var idx = exerciseIndex(), it = null;
+    Object.keys(idx).forEach(function (k) { if (idx[k].hash === hash) it = idx[k]; });
+    var html = '<div><a class="btn ghost" href="#progress" style="margin-left:-8px">‹ Прогресс</a></div>';
+    if (!it) return html + '<p class="muted">Такого упражнения больше нет в записях.</p>';
+    html += "<h1>" + esc(it.name) + "</h1>";
+    var pts = it.entries.slice().reverse().map(function (e) { return { d: e.w.date, v: bestWeight(e.ex.sets) }; }).filter(function (p) { return p.v != null; });
+    if (pts.length >= 2) html += '<div class="chart"><div class="eyebrow" style="margin-bottom:6px">Лучший вес, кг</div>' + chart(pts) + "</div>";
+    html += '<div class="hist">';
+    it.entries.forEach(function (e) {
+      var b = bestWeight(e.ex.sets);
+      html += '<div class="hist-row"><div class="top"><b>' + esc(fmtDate(e.w.date, { day: "numeric", month: "long" })) + '</b><span class="muted small">' + esc(e.w.title || "Тренировка") + "</span></div>" +
+        '<div class="sets-str">' + (esc(setsStr(e.ex.sets)) || '<span class="muted">без подходов</span>') + (b != null ? ' <span class="muted small">· макс ' + fmtNum(b) + " кг</span>" : "") + "</div>" +
+        (e.ex.note ? '<div class="muted small" style="white-space:pre-wrap">' + esc(e.ex.note) + "</div>" : "") + "</div>";
+    });
+    return html + "</div>";
+  }
+
+  function chart(pts) {
+    var W = 320, H = 150, L = 34, R = 10, T = 12, B = 24;
+    var vs = pts.map(function (p) { return p.v; });
+    var min = Math.min.apply(null, vs), max = Math.max.apply(null, vs);
+    if (min === max) { min = Math.max(0, min - 5); max = max + 5; }
+    var pad = (max - min) * 0.1; min = Math.max(0, min - pad); max += pad;
+    var x = function (i) { return L + (pts.length === 1 ? 0 : i * (W - L - R) / (pts.length - 1)); };
+    var y = function (v) { return T + (H - T - B) * (1 - (v - min) / (max - min)); };
+    var ticks = [min, (min + max) / 2, max];
+    var s = '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="График лучшего веса">';
+    ticks.forEach(function (t) {
+      s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(t) + '" y2="' + y(t) + '" stroke="var(--line)" stroke-width="1"/>' +
+        '<text x="' + (L - 6) + '" y="' + (y(t) + 4) + '" text-anchor="end" font-size="10" fill="var(--muted)">' + fmtNum(Math.round(t * 2) / 2) + "</text>";
+    });
+    var line = pts.map(function (p, i) { return x(i) + "," + y(p.v); }).join(" ");
+    var area = L + "," + (H - B) + " " + line + " " + x(pts.length - 1) + "," + (H - B);
+    s += '<polygon points="' + area + '" fill="var(--accent-soft)" stroke="none"/>';
+    s += '<polyline points="' + line + '" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>';
+    pts.forEach(function (p, i) {
+      var last = i === pts.length - 1;
+      s += '<circle cx="' + x(i) + '" cy="' + y(p.v) + '" r="' + (last ? 4.5 : 3) + '" fill="' + (last ? "var(--accent)" : "var(--surface)") + '" stroke="var(--accent)" stroke-width="2"/>';
+    });
+    var first = fmtDate(pts[0].d, { day: "numeric", month: "short" }), lastD = fmtDate(pts[pts.length - 1].d, { day: "numeric", month: "short" });
+    s += '<text x="' + L + '" y="' + (H - 6) + '" font-size="10" fill="var(--muted)">' + esc(first) + "</text>";
+    s += '<text x="' + (W - R) + '" y="' + (H - 6) + '" font-size="10" text-anchor="end" fill="var(--muted)">' + esc(lastD) + "</text>";
+    return s + "</svg>";
+  }
+
+  function viewMore() {
+    var n = db.workouts.length;
+    return "<h1>Резервная копия</h1>" +
+      '<div class="panel"><p>Все записи хранятся только на этом устройстве, в браузере. Если очистить данные браузера или сменить телефон, они пропадут. Время от времени сохраняй копию в файл.</p>' +
+      '<p class="muted small">Сейчас записано: ' + n + " " + plural(n, "тренировка", "тренировки", "тренировок") + ".</p>" +
+      '<button class="btn primary" data-act="export">Сохранить копию в файл</button>' +
+      '<button class="btn" data-act="import">Загрузить из файла</button>' +
+      '<p class="muted small">При загрузке тренировки из файла добавляются к текущим. Уже существующие не дублируются.</p></div>';
+  }
+
+  function plural(n, one, few, many) {
+    var m10 = n % 10, m100 = n % 100;
+    if (m10 === 1 && m100 !== 11) return one;
+    if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+    return many;
+  }
+
+  // ---------- actions ----------
+  function current() { var r = route(); return r.name === "workout" ? byId(r.id) : null; }
+
+  function createWorkout() {
+    var w = { id: uid(), created: Date.now(), date: today(), title: "", notes: "", exercises: [newExercise()] };
+    db.workouts.push(w); save(); go("w-" + w.id);
+    setTimeout(function () { var t = document.getElementById("w-title"); if (t) t.focus(); }, 30);
+  }
+  function repeatWorkout(id) {
+    var src = byId(id); if (!src) return;
+    var w = {
+      id: uid(), created: Date.now(), date: today(), title: src.title, notes: "",
+      exercises: src.exercises.filter(function (e) { return (e.name || "").trim() || setsStr(e.sets); }).map(function (e) {
+        return { name: e.name, note: "", sets: (e.sets.length ? e.sets : [newSet()]).map(function (s) { return newSet(s); }) };
+      })
+    };
+    if (!w.exercises.length) w.exercises.push(newExercise());
+    lastWorkoutId = null;
+    db.workouts.push(w); save(); go("w-" + w.id);
+    window.scrollTo(0, 0);
+    toast("Скопировано на сегодня. Поправь цифры, если нужно");
+  }
+
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest("[data-act]"); if (!b) return;
+    var act = b.getAttribute("data-act"), w = current();
+    var i = +b.getAttribute("data-ex"), j = +b.getAttribute("data-set");
+    if (act === "new") createWorkout();
+    else if (act === "open") go("w-" + b.getAttribute("data-id"));
+    else if (act === "repeat") repeatWorkout(b.getAttribute("data-id"));
+    else if (act === "ex") go("ex-" + b.getAttribute("data-hash"));
+    else if (act === "done") go("");
+    else if (act === "add-ex" && w) {
+      w.exercises.push(newExercise()); save(); render();
+      var el = document.getElementById("ex-name-" + (w.exercises.length - 1)); if (el) { el.focus(); el.scrollIntoView({ block: "center" }); }
+    }
+    else if (act === "del-ex" && w) {
+      var ex = w.exercises[i];
+      var empty = ex && !(ex.name || "").trim() && !setsStr(ex.sets) && !(ex.note || "").trim();
+      if (!empty && !armed(b, "?")) return;
+      w.exercises.splice(i, 1); delete openNotes[w.id + ":" + i]; save(); render();
+    }
+    else if (act === "add-set" && w) {
+      var sets = w.exercises[i].sets; sets.push(newSet(sets[sets.length - 1])); save(); render();
+      var r = document.getElementById("r-" + i + "-" + (sets.length - 1)); if (r) r.focus({ preventScroll: true });
+    }
+    else if (act === "del-set" && w) {
+      w.exercises[i].sets.splice(j, 1);
+      if (!w.exercises[i].sets.length) w.exercises[i].sets.push(newSet());
+      save(); render();
+    }
+    else if (act === "note" && w) {
+      openNotes[w.id + ":" + i] = true; render();
+      var n = document.getElementById("ex-note-" + i); if (n) n.focus();
+    }
+    else if (act === "del-w") {
+      if (!armed(b, "Нажми ещё раз, чтобы удалить")) return;
+      db.workouts = db.workouts.filter(function (x) { return x.id !== b.getAttribute("data-id"); });
+      lastWorkoutId = null; save(); go(""); toast("Тренировка удалена");
+    }
+    else if (act === "export") exportData();
+    else if (act === "import") document.getElementById("importFile").click();
+  });
+
+  document.addEventListener("input", function (e) {
+    var t = e.target, f = t.getAttribute && t.getAttribute("data-f"); if (!f) return;
+    var w = current(); if (!w) return;
+    var i = t.getAttribute("data-ex"), j = t.getAttribute("data-set");
+    if (i === null) {
+      if (f === "date" && !t.value) return;
+      w[f] = t.value;
+    } else if (j !== null) {
+      var v = t.value;
+      if (f === "reps") v = v.replace(/[^\d]/g, "");
+      else v = v.replace(/[^\d.,]/g, "");
+      if (v !== t.value) t.value = v;
+      w.exercises[+i].sets[+j][f] = v;
+    } else {
+      w.exercises[+i][f] = t.value;
+    }
+    save();
+  });
+  document.addEventListener("change", function (e) {
+    var t = e.target, f = t.getAttribute && t.getAttribute("data-f"); var w = current(); if (!w || !f) return;
+    if (f === "name") { var h = document.getElementById("hint-" + t.getAttribute("data-ex")); if (h) h.innerHTML = hintHtml(t.value, w); }
+    if (f === "date") render();
+  });
+
+  function exportData() {
+    var data = JSON.stringify({ app: "gym-log", version: 1, exported: new Date().toISOString(), workouts: db.workouts }, null, 2);
+    try {
+      var blob = new Blob([data], { type: "application/json" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a"); a.href = url; a.download = "trenirovki-" + today() + ".json";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+      toast("Файл с копией сохранён");
+    } catch (err) { toast("Не получилось сохранить файл в этом браузере"); }
+  }
+  document.getElementById("importFile").addEventListener("change", function (e) {
+    var file = e.target.files && e.target.files[0]; if (!file) return;
+    var rd = new FileReader();
+    rd.onload = function () {
+      try {
+        var d = JSON.parse(rd.result), list = Array.isArray(d) ? d : d.workouts;
+        if (!Array.isArray(list)) throw new Error("bad");
+        var added = 0;
+        list.forEach(function (w) {
+          if (!w || !w.id || byId(w.id) || !Array.isArray(w.exercises)) return;
+          db.workouts.push({ id: String(w.id), created: w.created || Date.now(), date: w.date || today(), title: w.title || "", notes: w.notes || "",
+            exercises: w.exercises.map(function (ex) { return { name: ex.name || "", note: ex.note || "", sets: (ex.sets || []).map(function (s) { return { reps: String(s.reps == null ? "" : s.reps), weight: String(s.weight == null ? "" : s.weight) }; }) }; }) });
+          added++;
+        });
+        save(); render(); toast(added ? "Добавлено тренировок: " + added : "Новых тренировок в файле нет");
+      } catch (err) { toast("Это не файл копии тренировок. Выбери файл trenirovki-….json"); }
+      e.target.value = "";
+    };
+    rd.readAsText(file);
+  });
+
+  window.addEventListener("hashchange", function () { render(); window.scrollTo(0, 0); });
+  render();
+
+  if ("serviceWorker" in navigator && location.protocol === "https:" && /github\.io$/.test(location.hostname)) {
+    try { navigator.serviceWorker.register("sw.js").catch(function () {}); } catch (e) {}
+  }
+})();
+</script>
+</body>
+</html>
